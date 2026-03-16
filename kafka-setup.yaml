@@ -1,0 +1,82 @@
+# ---------------------------------------------------
+# Kafka Service Definition
+# This service exposes Kafka broker internally within the cluster
+# ---------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service  # Service name that matches the deployment selector
+spec:
+  selector:
+    app: kafka          # Connects to pods with label app=kafka
+  ports:
+  - protocol: TCP       # Communication over TCP
+    port: 9092          # Exposed service port
+    targetPort: 9092    # The port on the Kafka container
+
+---
+# ---------------------------------------------------
+# Kafka Deployment Configuration
+# Sets up a single instance Kafka Broker managed by Kubernetes Deployment
+# ---------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-deployment  # Unique identifier for the deployment
+  labels:
+    app: kafka            # Label used for service and deployment association
+spec:
+  replicas: 1             # Number of Kafka broker instances (single node)
+  selector:
+    matchLabels:
+      app: kafka          # Pods with this label are managed by this deployment
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+        - name: kafka
+          image: confluentinc/cp-kafka:7.3.3  # Kafka image from Confluent
+          imagePullPolicy: IfNotPresent       # Use local image if already pulled
+          ports:
+            - containerPort: 9092             # Kafka broker listens on port 9092
+          env:                                # Environment variables for Kafka configuration
+            - name: KAFKA_BROKER_ID
+              value: "1"                      # Unique ID for the broker
+            - name: KAFKA_ZOOKEEPER_CONNECT
+              value: "zookeeper-service:2181" # Zookeeper service endpoint
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT" # Protocol mapping
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: "PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka-service:29092"
+              # External clients connect via localhost, internal via service name
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"                      # Replication factor suitable for single broker setup
+            - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+              value: "true"                   # Auto-creation of topics enabled
+          resources:
+            limits:
+              memory: "2000Mi"                # Memory limit for Kafka container
+              cpu: "1000m"                    # CPU limit for Kafka container
+
+---
+# ---------------------------------------------------
+# Kafka ClusterIP Service Configuration
+# Exposes Kafka inside Kubernetes cluster using ClusterIP
+# ---------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service
+  labels:
+    app: kafka
+spec:
+  type: ClusterIP             # Internal-only access within the cluster
+  ports:
+    - port: 9092              # Service port
+      targetPort: 9092        # Container port to forward to
+      protocol: TCP
+      name: client
+  selector:
+    app: kafka                # Ties service to Kafka pods

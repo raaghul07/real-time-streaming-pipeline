@@ -1,0 +1,59 @@
+# ---------------------------------------------------
+# Kafka-Neo4j Connector Deployment Configuration
+# Deploys Kafka Connect with Neo4j sink connector on Kubernetes
+# ---------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-neo4j-connector   # Deployment name for Kafka-Neo4j connector
+  labels:
+    app: kafka-neo4j-connector  # Label for pod matching
+spec:
+  replicas: 1                   # Single replica for connector instance
+  selector:
+    matchLabels:
+      app: kafka-neo4j-connector  # Match pods with this label
+  template:
+    metadata:
+      labels:
+        app: kafka-neo4j-connector
+    spec:
+      containers:
+        - name: kafka-neo4j-connector  # Name of the container
+          image: veedata/kafka-neo4j-connect:latest  # Custom Docker image containing the Neo4j sink connector
+          imagePullPolicy: IfNotPresent  # Pull image only if not available locally
+          ports:
+            - containerPort: 8083       # Exposes REST API on port 8083
+          env:                          # Environment variables to configure Kafka Connect
+            - name: CONNECT_BOOTSTRAP_SERVERS
+              value: "kafka-service:9092"  # Address of the Kafka broker
+            - name: CONNECT_REST_PORT
+              value: "8083"                # REST API port for Kafka Connect
+            - name: CONNECT_GROUP_ID
+              value: "kafka-connect"       # Consumer group ID for connector cluster coordination
+            - name: CONNECT_CONFIG_STORAGE_TOPIC
+              value: "connect-configs"     # Kafka topic to store connector configurations
+            - name: CONNECT_OFFSET_STORAGE_TOPIC
+              value: "connect-offsets"     # Topic for tracking consumer offsets
+            - name: CONNECT_STATUS_STORAGE_TOPIC
+              value: "connect-status"      # Topic for maintaining connector task statuses
+            - name: CONNECT_KEY_CONVERTER
+              value: "org.apache.kafka.connect.json.JsonConverter"  # Converter for message keys
+            - name: CONNECT_VALUE_CONVERTER
+              value: "org.apache.kafka.connect.json.JsonConverter"  # Converter for message values
+            - name: CONNECT_INTERNAL_KEY_CONVERTER
+              value: "org.apache.kafka.connect.json.JsonConverter"  # Internal key format
+            - name: CONNECT_INTERNAL_VALUE_CONVERTER
+              value: "org.apache.kafka.connect.json.JsonConverter"  # Internal value format
+            - name: CONNECT_REST_ADVERTISED_HOST_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP  # Dynamically advertises pod's own IP address
+            - name: CONNECT_PLUGIN_PATH
+              value: "/usr/share/java,/etc/kafka-connect/jars"  # Paths where Kafka Connect searches for connector plugins
+          volumeMounts:
+            - name: connector-config
+              mountPath: /etc/kafka-connect/jars  # Mount external connector jars into container
+      volumes:
+        - name: connector-config
+          emptyDir: {}   # Temporary storage for plugin jars (empty directory within pod's lifecycle)

@@ -1,0 +1,35 @@
+# Neo4j Helm Chart Setup
+neo4j:
+  name: neo4j
+  image:
+    tag: 4.4.11  # Define the Neo4j version to deploy
+  acceptLicenseAgreement: "yes"
+  password: "YOUR_PASSWORD_HERE"  # Password setting as per assignment guidelines
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+  plugins:
+    - name: "apoc"
+    - name: "graph-data-science"  # Include the Graph Data Science library (GDS)
+
+service:
+  type: ClusterIP
+  ports:
+    http: 7474
+    bolt: 7687
+
+persistence:
+  enabled: true
+  size: 10Gi  # Set the desired storage size
+  storageClass: defaultStorageClass  # Indicate the storage class
+
+volumes:
+  data:
+    mode: defaultStorageClass  # Specify volume mode for persistent storage
+
+# Further configuration settings can be added here if necessary
